@@ -100,14 +100,14 @@ double Qre  = Qlu - Qtot;
 //				+ MATE_renal_CLint * MATE_renal_RAF * PTC_num * 60/1000000; //(L/hr)
 // CLrenal = f_cl * CLrenal;
 
-double CLrenal = (GFR + renal_secretion) * renal_secretion_scaling; //(L/hr) 
+double CLrenal = (GFR + renal_secretion) * renal_scaling; //(L/hr) 
 
 //intrinsic hepatic clearance calculation
 // double CLintHep = CL_pd_liver * hepatocytes_per_liver * 60/ 1000 
 //				+ OCT1_hepatic_CLint * OCT1_hepatic_RAF * hepatocytes_per_liver * 60/1000000 
 //				+ MPPGL * HLM_CLint * liver_mass * 60/1000000; //(L/hr)
 
-double CLintHep = 6 * hepatic_secretion_scaling; //(L/hr) 
+double CLintHep = 6 * hepatic_scaling; //(L/hr) 
 
 
 $ODE
