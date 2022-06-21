@@ -24,7 +24,7 @@ The base model is built with following assumptions:
 - blood:plasma ratio = 3
 - TXA adsoption rate in the gut lumen = 0.4 h-1
 
-To validate the model, we use the observed ata from from [Pilbrant et al., 1981](https://pubmed.ncbi.nlm.nih.gov/7308275/) with both IV and oral observed data from 3 healthy male wolunteers. I conclude the (parameters) provide a reasonable fit, and the pharmacokinetics is overall inline with what is described in [Dunn 1999](https://pubmed.ncbi.nlm.nih.gov/10400410/) and I will be using them for the following simulation. 
+To validate the model, we use the observed data from [Pilbrant et al., 1981](https://pubmed.ncbi.nlm.nih.gov/7308275/) with both IV and oral observed data from 3 healthy male wolunteers. I conclude the (parameters) provide a reasonable fit, and the pharmacokinetics is overall inline with what is described in [Dunn 1999](https://pubmed.ncbi.nlm.nih.gov/10400410/) and I will be using them for the following simulation. 
 
 ![validation of plasma concentration in oral/ iv dosing](img/validation.png)
 
@@ -58,5 +58,7 @@ We acknowledge the science behind our work isn't new, as [Kane et al., 2021](htt
 ## Content of the folder
 
 folders: 
+
+- TranexamicAcidPBPK.cpp (model file)
 
 - doc (where reference papers are stored)
