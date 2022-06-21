@@ -17,19 +17,16 @@ The simulation is run with Rstudio (version) and the following packages (version
 
 ## Model Development
 
-The PBPK model is borrowed from [Utsey et al., 2020](https://dmd.aspetjournals.org/content/48/10/903) with an additional compartment added to model TXA absoption with first-order kinetics. 
+The PBPK model is borrowed from [Utsey et al., 2020](https://dmd.aspetjournals.org/content/48/10/903) with an additional compartment added to model TXA absoption with first-order kinetics. Additional drug property related to TXA is obtained from its [PubChem page](https://pubchem.ncbi.nlm.nih.gov/compound/Tranexamic-acid).
 
 The base model is built with following assumptions: 
+- All drug in the plasma is unbound 
+- blood:plasma ratio = 3
+- TXA adsoption rate in the gut lumen = 0.4 h-1
 
+To validate the model, we use the observed ata from from [Pilbrant et al., 1981](https://pubmed.ncbi.nlm.nih.gov/7308275/) with both IV and oral observed data from 3 healthy male wolunteers. I conclude the (parameters) provide a reasonable fit, and the pharmacokinetics is overall inline with what is described in [Dunn 1999](https://pubmed.ncbi.nlm.nih.gov/10400410/) and I will be using them for the following simulation. 
 
-In addition, there are 2 parameters unknown: 
-
-- blood:plasma ratio
-- TXA adsoption rate in the gut lumen
-
-To tune these 2 parameters, we use the observed ata from from [Pilbrant et al., 1981](https://pubmed.ncbi.nlm.nih.gov/7308275/) with both IV and oral observed data from 3 healthy male wolunteers. I conclude the (parameters) provide a reasonable fit, and the pharmacokinetics is overall inline with what is described in [Dunn 1999](https://pubmed.ncbi.nlm.nih.gov/10400410/) and I will be using them for the following simulation. 
-
-(add pic)
+![validation of plasma concentration in oral/ iv dosing](img/validation.png)
 
 
 ## Oral dosing from Transino II
