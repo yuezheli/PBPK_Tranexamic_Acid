@@ -41,6 +41,8 @@ The recommended oral dosing of Transino II roughlt translated into 1.5g of TXA p
 
 ## Sensitivity Analysis
 
+### Blood:plasma ratio
+
 ### Absorption rate
 
 ### Dosing amount
