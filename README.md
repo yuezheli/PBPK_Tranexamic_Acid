@@ -40,13 +40,23 @@ The recommended oral dosing of Transino II roughlt translated into 1.5g of TXA p
 
 ### Blood:plasma ratio
 
+The main reason for conducting blood:plasma ratio is due to the parameter is assumed, and my fitted result is different from [Kane et al., 2021](https://pubmed.ncbi.nlm.nih.gov/34087356/). 
+
+(add pic)
+
 ### Absorption rate
 
-### Dosing amount
+I want to carry out the senseitivity analysis on TXA absoprtion rate not only because this parameter is assumed in the current model, but also [Dunn 1999](https://pubmed.ncbi.nlm.nih.gov/10400410/) reported a slightly different bioavailability in the with/ without food situation. 
 
-### Body weight
+(add pic)
+
+### Body weight & gender
+
+The interest in body weight is partially based on the validation data are from heavier males, while small females may also take this drug...
 
 ### Renal Impairment
+
+Since TXA is mostly cleared through renal pathway, thus ...
 
 ## Conclusion and Discussion
 
