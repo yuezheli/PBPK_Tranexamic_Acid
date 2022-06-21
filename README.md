@@ -31,10 +31,15 @@ To validate the model, we use the observed data from [Pilbrant et al., 1981](htt
 
 ## Oral dosing from Transino II
 
-The recommended oral dosing of Transino II roughlt translated into 1.5g of TXA per 12 hour. 
+The recommended oral dosing of Transino II roughlt translated into 1.5g of TXA per 12 hour. The simulation result is provided as follows. The blue line on the left indicate the Kd of TXA binding to plasminogen [Dunn 1999](https://pubmed.ncbi.nlm.nih.gov/10400410/), the blue line on the right indicates effective TXA concentration to inhibit fibrinolysis [Picetti et al., 2019](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6365258/). The simulation predicts that the TXA concentation in the skin will be somewhat effective in inhibiting pigment forming for at least 12 hours, but the concentration in plasma is unlikely to inhibit the breakdown of blood clot. 
 
-## 
+![](img/SingleDoseSkinPlasma.png)
 
+5 dose of oral TXA for every 12 hours over 3 days is simulated. Multiple dose leads to slightly higher Cmax of TXA human, but with almost no impact on Tmax, or the time of exposure. 
+
+In addition, after TXA dosing stopped, all the TXA is cleared from plasma and skin in 24 hours. 
+
+![](img/MultiDoseSkinPlasma.png)
 
 ## Sensitivity Analysis
 
