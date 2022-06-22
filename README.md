@@ -8,12 +8,14 @@ Note this is purelu a modeling and simulation (M&S) exercise. The result should 
 
 ## Set up
 
-The simulation is run with Rstudio (version) and the following packages (version) ....
+The simulation is run with R 4.1 and the following packages (version) 
 
-- tidyverse
-- mrgsolve
-- mrggsave
-...
+- tidyverse (1.3.1)
+- mrgsolve (0.11.1)
+- ggplot2 (3.3.5)
+- gridExtra (2.3)
+- PKPDmisc (3.0.0)
+- Rcpp (1.0.7)
 
 ## Model Development
 
@@ -41,6 +43,10 @@ In addition, after TXA dosing stopped, all the TXA is cleared from plasma and sk
 
 ![](img/MultiDoseSkinPlasma.png)
 
+When I look at the exposure in different organs, plasma exposure is unsurprisingly, the highest. In contrast, skin is one of the organs have the least exposure. This indicates that oral take of TXA results in most of the TXA not being delivered to skin. 
+
+![](img/Exposure.png)
+
 ## Sensitivity Analysis
 
 ### Blood:plasma ratio
@@ -55,9 +61,11 @@ I want to carry out the senseitivity analysis on TXA absoprtion rate not only be
 
 (add pic)
 
-### Body weight & gender
+### Body weight 
 
 The interest in body weight is partially based on the validation data are from heavier males, while small females may also take this drug...
+
+However, it is reasonable to caution that this weight adjustment can address gender-related issue for skin exposure, as women has the same percentage of cardiac output goes into skin ([Ref](https://pubmed.ncbi.nlm.nih.gov/14506981/)). However, this may not be the case for exposure in other organ (e.g. adipose). 
 
 ### Renal Impairment
 
@@ -65,7 +73,9 @@ Since TXA is mostly cleared through renal pathway, thus ...
 
 ## Conclusion and Discussion
 
-Overall, the plasma concentraion following the Transino II recommended dosing scheme would lead to safe plasma TXA concentration with no apparent risk of clotting ...
+Overall, the plasma concentraion following the Transino II recommended dosing scheme would lead to safe plasma TXA concentration with no apparent risk of clotting. The concentration of TXA after oral intake peaks in 3 hours after the drug in the skin, and the concentration stays somewhat effective in preventing pigmentation for the next 12 hours.
+
+(talk about uncertainty and weaknesses).
 
 
 We acknowledge the science behind our work isn't new, as [Kane et al., 2021](https://pubmed.ncbi.nlm.nih.gov/34087356/) published a similar study on TXA with more extensive discussion on different route of administration. But I concede this repo provides an open-source implementation is is beneficial for the science. 
