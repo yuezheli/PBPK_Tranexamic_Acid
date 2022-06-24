@@ -1,0 +1,520 @@
+---
+title: "Tranexamic acid PBPK modeling"
+author: "Yuezhe Li"
+date: "Jun 20, 2022"
+output: html_document
+---
+
+# Set up
+```{r setup, include=FALSE, echo = FALSE}
+rm(list=ls())
+gc()
+
+library(tidyverse)
+library(mrgsolve)
+library(ggplot2)
+library(gridExtra)
+library(PKPDmisc)
+
+## adjust general theme for plotting
+th <- theme(plot.title=element_text(size=20), axis.title=element_text(size=10),
+            axis.text=element_text(size=10), legend.text=element_text(size=20))
+```
+
+# Calculate partition coefficient of tranexamic acid
+
+## Berezhkovskiy, 2004
+```{r}
+calcKp_Berez <- function(logP, pKa, fup, BP=1, type=1, dat){
+
+  dat_all <- dat %>% filter(!tissue %in% c("Plasma","Adipose","RBCs"))
+  
+  n <- length(dat$tissue)
+  Kp_all <- vector(mode = "numeric", length = n)
+  
+  Vwp <- dat$f_water[dat$tissue == "Plasma"]
+  Vnlp <- dat$f_n_l[dat$tissue == "Plasma"]
+  Vphp <- dat$f_pl[dat$tissue == "Plasma"]
+  
+  dat2 <- dat %>% filter(!tissue %in% c("Plasma","RBCs"))
+  
+  Vwt <- dat2$f_water[dat2$tissue != "Adipose"]
+  Vwad <- dat2$f_water[dat2$tissue == "Adipose"]
+  Vnlt <- dat2$f_n_l[dat2$tissue != "Adipose"]
+  Vnlad <- dat2$f_n_l[dat2$tissue == "Adipose"]
+  Vpht <- dat2$f_pl[dat2$tissue != "Adipose"]
+  Vphad <- dat2$f_pl[dat2$tissue == "Adipose"]
+  
+  fut <- 1/(1+((1-fup)/fup)*0.5)
+  
+  pH <- dat$pH[dat$tissue == "Adipose"]
+
+  logD <- 1.115*logP-1.35 #logD is the olive oil:buffer(water) partition coefficient of nonionized species
+  
+  logD_star <- switch(type,
+                      #1-neutral
+                      logD,   
+                      #2-monoprotic acid
+                      logD-log10(1+10^(pH-pKa)),
+                      #3-monoprotic base
+                      logD-log10(1+10^(pKa-pH)), 
+                      #4-diprotic acid
+                      logD-log10(1+10^(2*pH-pKa[1]-pKa[2])),
+                      #5-diprotic base
+                      logD-log10(1+10^(pKa[1]+pKa[2]-2*pH)), 
+                      #6-monoprotic acid monoprotic base (acid comes first)
+                      logD-log10(1+10^(pKa[2]-pKa[1])),  
+                      #7-triprotic acid
+                      logD-log10(1+10^(3*pH-pKa[1]-pKa[2]-pKa[3])),  
+                      #8-triprotic base
+                      logD-log10(1+10^(pKa[1]+pKa[2]+pKa[3]-3*pH)),  
+                      #9-diprotic acid monoprotic base (first two are acid)
+                      logD-log10(1+10^(pH-pKa[1]-pKa[2]+pKa[3])), 
+                      #10-diprotic base monoprotic acid (first one is acid)
+                      logD-log10(1+10^(pKa[2]+pKa[3]-pKa[1]-pH)))       
+  
+  D_star <- 10^logD_star   
+  Kpad <- ((D_star*(Vnlad+0.3*Vphad)+((Vwad/fut)+0.7*Vphad))/(D_star*(Vnlp+0.3*Vphp)+((Vwp/fup)+0.7*Vphp)))
+
+  
+  P <- 10^logP
+  Kpt <- ((P*(Vnlt+0.3*Vpht)+((Vwt/fut)+0.7*Vpht))/(P*(Vnlp+0.3*Vphp)+((Vwp/fup)+0.7*Vphp))) 
+  
+  nms_all <- dat_all$tissue %>% substr(1,2) %>% tolower()
+  nms_all <- paste("Kp", nms_all, sep="")
+  nms <- c("Kpad",nms_all)
+  # return(nms)
+  Kp <- as.list(c(Kpad,Kpt))
+  names(Kp) <- nms
+  
+  return(Kp)
+}
+```
+
+## Poulin and Theil http://jpharmsci.org/article/S0022-3549(16)30889-9/fulltext
+```{r}
+calcKp_PT <- function(logP= -1.43, pKa = 11.8, fup = 1, BP=1, type=3, dat){
+  
+  dat_all <- dat %>% filter(!tissue %in% c("Plasma","Adipose","RBCs"))
+  
+  n <- length(dat$tissue)
+  Kp_all <- vector(mode = "numeric", length = n)
+  
+  Vwp <- dat$f_water[dat$tissue == "Plasma"]
+  Vnlp <- dat$f_n_l[dat$tissue == "Plasma"]
+  Vphp <- dat$f_pl[dat$tissue == "Plasma"]
+  
+  dat2 <- dat %>% filter(!tissue %in% c("Plasma","RBCs"))
+  
+  Vwt <- dat2$f_water[dat2$tissue != "Adipose"]
+  Vwad <- dat2$f_water[dat2$tissue == "Adipose"]
+  Vnlt <- dat2$f_n_l[dat2$tissue != "Adipose"]
+  Vnlad <- dat2$f_n_l[dat2$tissue == "Adipose"]
+  Vpht <- dat2$f_pl[dat2$tissue != "Adipose"]
+  Vphad <- dat2$f_pl[dat2$tissue == "Adipose"]
+    
+  pH <- dat$pH[dat$tissue == "Adipose"]
+  logD <- 1.115*logP-1.35 #logD is the olive oil:buffer(water) partition coefficient of nonionized species
+  
+  logD_star <- switch(type,
+                 #1-neutral
+                 logD,   
+                 #2-monoprotic acid
+                 logD-log10(1+10^(pH-pKa)),
+                 #3-monoprotic base
+                 logD-log10(1+10^(pKa-pH)), 
+                 #4-diprotic acid
+                 logD-log10(1+10^(2*pH-pKa[1]-pKa[2])),
+                 #5-diprotic base
+                 logD-log10(1+10^(pKa[1]+pKa[2]-2*pH)), 
+                 #6-monoprotic acid monoprotic base (acid comes first)
+                 logD-log10(1+10^(pKa[2]-pKa[1])),  
+                 #7-triprotic acid
+                 logD-log10(1+10^(3*pH-pKa[1]-pKa[2]-pKa[3])),  
+                 #8-triprotic base
+                 logD-log10(1+10^(pKa[1]+pKa[2]+pKa[3]-3*pH)),  
+                 #9-diprotic acid monoprotic base (first two are acid)
+                 logD-log10(1+10^(pH-pKa[1]-pKa[2]+pKa[3])), 
+                 #10-diprotic base monoprotic acid (first one is acid)
+                 logD-log10(1+10^(pKa[2]+pKa[3]-pKa[1]-pH)))       
+
+  D_star <- 10^logD_star   
+  Kpad <- ((D_star*(Vnlad+0.3*Vphad)+(1*(Vwad+0.7*Vphad)))/(D_star*(Vnlp+0.3*Vphp)+(1*(Vwp+0.7*Vphp)))) * fup
+      
+  P <- 10^logP
+  fut <- 1/(1+((1-fup)/fup)*0.5)
+  Kpt <- ((P*(Vnlt+0.3*Vpht)+(1*(Vwt+0.7*Vpht)))/(P*(Vnlp+0.3*Vphp)+(1*(Vwp+0.7*Vphp)))) * (fup/fut)
+  
+  nms_all <- dat_all$tissue %>% substr(1,2) %>% tolower()
+  nms_all <- paste("Kp", nms_all, sep="")
+  nms <- c("Kpad",nms_all)
+  Kp <- as.list(c(Kpad,Kpt))
+  names(Kp) <- nms
+  
+  return(Kp)
+}
+```
+
+## Calculation
+```{r}
+dat <- read.csv("tissue_comp_P_T.csv")
+logP <- -1.79  #liphilicity; https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8299544/
+pKa <- 10.28 
+fup <- 1  # unbound fraction in plasma
+type <- 1  # monoprotic base
+BP <- 3  #blood:plasma concentration ratio
+
+kp_pt <- calcKp_PT(logP=logP, pKa=pKa, fup=fup, BP=BP, type=type, dat=dat) # the original 
+kp_berez <- calcKp_Berez(logP, pKa=pKa, fup=fup, BP=BP, type=type, dat=dat)
+```
+
+
+# Observed data
+
+Data observed from Pilbrant et al., 1981
+https://pubmed.ncbi.nlm.nih.gov/7308275/
+```{r}
+time_iv <- c(1/6, 2/6, 0.5, 1, 1.5, 2, 3, 4, 7, 9.5, 12, 24, 30, 32)
+
+# plasma concentration after IV dose of 1g tranexamic acid
+# unit: mg/L
+ll <- data.frame(time = time_iv, obs = c(86, 61, 49, 31, 25.1, 20.5, 14.4, 9, 5.1, 2.3, 0.91, 0.27, 0.22, 0.22)) # wt = 66kg
+oe <- data.frame(time = time_iv, obs = c(86, 65.6, 47.1, 32.3, 25.9, 17.4, 12, 7.6, 3.3, 2.2, 1.3, 0.45, 0.26, 0.25)) # wt = 80kg
+sn <- data.frame(time = time_iv, obs = c(81.8, 63.8, 44.4, 31.7, 25, 20.8, 13, 9.3, 4, 2.1, 1.3, 0.3, 0.23, 0.22)) # wt = 73kg
+
+# plasma concentration afteroral dose of 2g tranexamic acid
+# unit: mg/L
+time_oral <- c(0.5, 1, 1.5, 2,3,4,5,6)
+oral1 <- data.frame(time = time_oral, obs = c(0.4, 11.4, 14.1, 16.4, 15.4, 12.6, 8.5, 6.1))
+oral2 <- data.frame(time = time_oral, obs = c(3.4, 10.3, 14.7, 17.7, 16.4, 12.8, 8, 3.2))
+oral3 <- data.frame(time = time_oral, obs = c(2.1, 9.1, 9.7, 9.3, 9.1, 6.9, 5.5, 4.2))
+oral4 <- data.frame(time = time_oral, obs = c(6.4, 13.3, 15.8, 15.6, 17.9, 14.5, 10.9, 7.4))
+oral5 <- data.frame(time = time_oral, obs = c(0.5, 4.6, 9.1, 10.5, 12.4, 12, 9.5, 6.3))
+oral6 <- data.frame(time = time_oral, obs = c(3, 8.6, 10.5, 11.8, 15.7, 12.4, 10.9, 7.7))
+oral7 <- data.frame(time = time_oral, obs = c(3.9, 7.1, 8.6, 9.3, 10.1, 8.2, 6.7, 4.4))
+oral8 <- data.frame(time = time_oral, obs = c(1.3, 5.5, 8.8, 12.3, 13.1, 15.2, 12.3, 7.7))
+oral9 <- data.frame(time = time_oral, obs = c(2.3, 7.7, 12.6, 15.4, 16.3, 14.9, 9.6, 7.4))
+oral10 <- data.frame(time = time_oral, obs = c(2.2, 6.1, 10.2, 12.2, 12.4, 10.7, 10.4, 9.3))
+```
+
+# Read model
+
+```{r}
+modA <- mread("TranexamicAcidPBPK") %>% param(hepatic_scaling = 0) # based on Dunn et al., 1999
+# https://pubmed.ncbi.nlm.nih.gov/10400410/
+```
+
+# Model validation
+
+IV dose = 1g
+```{r}
+MW = 157.21 # unit: g.mol-1
+
+dose = 1 # unit = g
+
+sim1 <- modA %>% 
+  param(BP = 3) %>%
+  param(kp_pt) %>%
+  ev(time=0, amt=dose/MW, cmt='VEN') %>% 
+  mrgsim(delta = 0.05, end = 32) %>% as_tibble() %>% filter(time > 0.01)
+
+iv1g <- ggplot() + 
+  geom_line(data = sim1, aes(x = time, y = Cvenous * MW * 1000, col = "plasma, predicted"), alpha = 0.9) +  
+  # geom_line(data = sim1, aes(x = time, y = Cskin * MW * 1000, col = "skin"), alpha = 0.9) +  
+  geom_line(data = sn, aes(x = time, y = obs, col = "plasma, subj S.N."), alpha = 0.5, linetype="dashed") +
+  geom_point(data = sn, aes(x = time, y = obs, col = "plasma, subj S.N."), alpha = 0.5, size = 3) +
+  geom_line(data = oe, aes(x = time, y = obs, col = "plasma, subj O.E."), alpha = 0.5, linetype="dashed") +
+  geom_point(data = oe, aes(x = time, y = obs, col = "plasma, subj O.E."), alpha = 0.5, size = 3) +
+  geom_line(data = ll, aes(x = time, y = obs, col = "plasma, subj L.L."), alpha = 0.5, linetype="dashed") +
+  geom_point(data = ll, aes(x = time, y = obs, col = "plasma, subj L.L."), alpha = 0.5, size = 3) +
+  # scale_y_continuous(trans = "log10", limits = c(1e-4, 100)) + 
+  labs(x = "time (h)", y = "concentration (mg/L)", color = "") + theme_bw() + ggtitle("IV, dose = 1g")
+
+iv1g
+```
+Oral dose = 2g
+
+```{r}
+MW = 157.21 # unit: g.mol-1
+bioavailability = 0.3 # https://pubmed.ncbi.nlm.nih.gov/10400410/
+
+dose = 2
+
+sim2 <- modA %>% 
+  param(BP = 3) %>%
+  param(kp_pt) %>%
+  param(ka = 0.4) %>% # tuned
+  ev(time=0, amt=dose/MW * bioavailability, cmt='GUTLUMEN') %>% 
+  mrgsim(delta = 0.1, end = 6) %>% as_tibble() %>% filter(time > 0.1)
+
+oral2g <- ggplot() + 
+  geom_line(data = sim2, aes(x = time, y = Cvenous * MW * 1000, col = "plasma, predicted"), alpha = 0.9) +  
+  geom_line(data = oral1, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, linetype="dashed") +
+  geom_point(data = oral1, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, size = 3) +
+  geom_line(data = oral2, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, linetype="dashed") +
+  geom_point(data = oral2, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, size = 3) +
+  geom_line(data = oral3, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, linetype="dashed") +
+  geom_point(data = oral3, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, size = 3) +
+  geom_line(data = oral4, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, linetype="dashed") +
+  geom_point(data = oral4, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, size = 3) +
+  geom_line(data = oral5, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, linetype="dashed") +
+  geom_point(data = oral5, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, size = 3) +
+  geom_line(data = oral6, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, linetype="dashed") +
+  geom_point(data = oral6, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, size = 3) +
+  geom_line(data = oral7, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, linetype="dashed") +
+  geom_point(data = oral7, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, size = 3) +
+  geom_line(data = oral8, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, linetype="dashed") +
+  geom_point(data = oral8, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, size = 3) +
+  geom_line(data = oral9, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, linetype="dashed") +
+  geom_point(data = oral9, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, size = 3) +
+  geom_line(data = oral10, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, linetype="dashed") +
+  geom_point(data = oral10, aes(x = time, y = obs, col = "plasma obs"), alpha = 0.5, size = 3) +
+  labs(x = "time (h)", y = "concentration (mg/L)", color = "") + theme_bw() + ggtitle("oral, dose = 2g")
+  
+oral2g
+```
+Save validation figures
+
+```{r}
+png('img/validation.png', width = 1200, height = 400, res = 100)
+grid.arrange(iv1g, oral2g, ncol = 2)
+dev.off()
+```
+
+# Skin-focused study
+
+```{r}
+modB <- modA %>% param(BP = 3) %>% param(kp_pt) %>% 
+                 param(ka = 0.4) # tuned
+```
+
+## single dose skin dynamics
+
+```{r}
+# oral dose = 1.5g
+dose = 1.5
+
+sim3 <- modB %>% 
+  ev(time=0, amt=dose/MW * bioavailability, cmt='GUTLUMEN') %>% 
+  mrgsim(delta = 0.1, end = 12) %>% as_tibble() %>% filter(time > 0.1)
+
+skinconc1 = ggplot() + 
+  geom_line(data = sim3, aes(x = time, y = Cskin * MW * 1000, col = "skin, predicted"), alpha = 0.9) +
+  geom_hline(yintercept = 3.79, show.legend = NA, color  = 'blue') + 
+  labs(x = "time (h)", y = "concentration (mg/L)", color = "") + theme_bw() 
+
+
+skinconc2 = ggplot() + 
+  geom_line(data = sim3, aes(x = time, y = Cskin * 1e6, col = "skin, predicted"), alpha = 0.9) +
+  geom_hline(yintercept = 1.1, show.legend = NA, color  = 'blue') + 
+  labs(x = "time (h)", y = "skin concentration (uM)", color = "") + theme_bw() + 
+  theme(legend.position="bottom") 
+
+
+plasmaconc1 = ggplot() + 
+  geom_line(data = sim3, aes(x = time, y = Cvenous * MW * 1000, col = "plasma, predicted"), alpha = 0.9) +
+  geom_hline(yintercept = 10, show.legend = NA, color  = 'blue') + 
+  labs(x = "time (h)", y = "plasma concentration (mg/L)", color = "") + theme_bw()  + 
+  theme(legend.position="bottom") 
+
+
+png('img/SingleDoseSkinPlasma.png', width = 1200, height = 400, res = 100)
+grid.arrange(skinconc2, plasmaconc1, ncol = 2)
+dev.off()
+
+grid.arrange(skinconc2, plasmaconc1, ncol = 2)
+```
+
+
+## multiple oral dose 
+
+Effective TXA concentration obtained from Picetti et al., 2019
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6365258/
+```{r}
+# oral dose = 1.5g
+dose = 1.5
+
+sim4 <- modB %>% 
+  ev(time=0, amt=dose/MW * bioavailability, cmt='GUTLUMEN', addl = 4, ii = 12) %>% 
+  mrgsim(delta = 0.1, end = 24*3) %>% as_tibble() %>% filter(time > 0.1)
+
+OralMulti <- ggplot() + 
+  geom_line(data = sim4, aes(x = time, y = Cvenous * MW * 1000, col = "plasma, predicted"), alpha = 0.9) +  
+  geom_line(data = sim4, aes(x = time, y = Cskin * MW * 1000, col = "skin, predicted"), alpha = 0.9) +
+  geom_hline(yintercept = 10, show.legend = NA, color = 'green', linetype="dashed") + 
+  geom_hline(yintercept = 1.1e-6 * MW, show.legend = NA, color = 'blue', linetype="dashed") + 
+  scale_x_continuous(breaks = c(0, 12, 24, 36, 48, 60, 72)) + 
+  # scale_y_continuous(trans = "log") + 
+  labs(x = "time (h)", y = "concentration (mg/L)", color = "") + theme_bw()
+
+OralMulti
+
+ggsave(file = 'img/MultiDoseSkinPlasma.png', plot = OralMulti, width = 8, height = 4)
+```
+
+## Compare exposure 
+
+```{r}
+auc = auc_partial(sim4$time, sim4$Cadipose)[[1]] %>% data.frame()
+names(auc) = "AUC"
+auc['organ'] = 'Adipose'
+
+auc[2,1] = auc_partial(sim4$time, sim4$Cbrain)[[1]]
+auc[2,2] = 'Brain'
+
+auc[3,1] = auc_partial(sim4$time, sim4$Cheart)[[1]]
+auc[3,2] = 'Heart'
+
+auc[4,1] = auc_partial(sim4$time, sim4$Cbone)[[1]]
+auc[4,2] = 'Bone'
+
+auc[5,1] = auc_partial(sim4$time, sim4$Ckidney)[[1]]
+auc[5,2] = 'Kidney'
+
+auc[6,1] = auc_partial(sim4$time, sim4$Cliver)[[1]]
+auc[6,2] = 'Liver'
+
+auc[7,1] = auc_partial(sim4$time, sim4$Clung)[[1]]
+auc[7,2] = 'Lung'
+
+auc[8,1] = auc_partial(sim4$time, sim4$Cmuscle)[[1]]
+auc[8,2] = 'Muscle'
+
+auc[9,1] = auc_partial(sim4$time, sim4$Cspleen)[[1]]
+auc[9,2] = 'Spleen'
+
+auc[10,1] = auc_partial(sim4$time, sim4$Crest)[[1]]
+auc[10,2] = 'Rest'
+
+auc[11,1] = auc_partial(sim4$time, sim4$Cvenous)[[1]]
+auc[11,2] = 'Plasma'
+
+auc[12,1] = auc_partial(sim4$time, sim4$Cskin)[[1]]
+auc[12,2] = 'Skin'
+
+
+exposure <- ggplot(auc, aes(x = reorder(organ, -AUC), y = AUC)) +
+  geom_col(fill = "whitesmoke", color = 'gray8') +
+  labs(x = "", y = "exposure (mol/L.h)") + theme_bw() + ggtitle('exposure after 7.5g TXA over 72 hours')
+
+exposure
+
+ggsave(file = 'img/Exposure.png', plot = exposure, width = 8, height = 4)
+```
+
+# Sensitivity Analysis
+
+## blood:plasma ratio
+
+```{r}
+kp_pt_1 <- calcKp_PT(logP=logP, pKa=pKa, fup=fup, BP=1, type=type, dat=dat) # BP = 1 
+kp_pt_3 <- calcKp_PT(logP=logP, pKa=pKa, fup=fup, BP=3, type=type, dat=dat) # BP = 3 
+kp_pt_5 <- calcKp_PT(logP=logP, pKa=pKa, fup=fup, BP=5, type=type, dat=dat) # BP = 5 
+kp_pt_9 <- calcKp_PT(logP=logP, pKa=pKa, fup=fup, BP=9, type=type, dat=dat) # BP = 9 
+
+mod1 <- modB %>% param(ka = 0.4) %>% param(BP = 1) %>% param(kp_pt_1) 
+mod3 <- modB %>% param(ka = 0.4) %>% param(BP = 3) %>% param(kp_pt_3) 
+mod5 <- modB %>% param(ka = 0.4) %>% param(BP = 5) %>% param(kp_pt_5) 
+mod9 <- modB %>% param(ka = 0.4) %>% param(BP = 9) %>% param(kp_pt_9) 
+
+
+sim01 <- mod1 %>% 
+  ev(time=0, amt=dose/MW * bioavailability, cmt='GUTLUMEN') %>% 
+  mrgsim(delta = 0.1, end = 12) %>% as_tibble() %>% filter(time > 0.1)
+
+sim03 <- mod3 %>% 
+  ev(time=0, amt=dose/MW * bioavailability, cmt='GUTLUMEN') %>% 
+  mrgsim(delta = 0.1, end = 12) %>% as_tibble() %>% filter(time > 0.1)
+
+sim05 <- mod5 %>% 
+  ev(time=0, amt=dose/MW * bioavailability, cmt='GUTLUMEN') %>% 
+  mrgsim(delta = 0.1, end = 12) %>% as_tibble() %>% filter(time > 0.1)
+
+sim09 <- mod9 %>% 
+  ev(time=0, amt=dose/MW * bioavailability, cmt='GUTLUMEN') %>% 
+  mrgsim(delta = 0.1, end = 12) %>% as_tibble() %>% filter(time > 0.1)
+
+bpscan <- ggplot() + 
+  geom_line(data = sim01, aes(x = time, y = Cskin, color = "BP=1")) + 
+  geom_line(data = sim03, aes(x = time, y = Cskin, color = "BP=3")) + 
+  geom_line(data = sim05, aes(x = time, y = Cskin, color = "BP=5")) + 
+  geom_line(data = sim09, aes(x = time, y = Cskin, color = "BP=9")) + 
+  labs(x = "time (h)", y = "skin concentration (mol/L)", color = "") + theme_bw()
+
+bpscan
+
+ggsave(file = 'img/sens_BP.png', plot = bpscan, width = 8, height = 4)
+```
+## Oral TXA absorption rate
+
+```{r}
+sim10 <- modB %>% 
+  idata_set(expand.idata(ka = c(0.04, 0.2, 0.4, 0.8, 4))) %>% 
+  ev(time=0, amt=dose/MW * bioavailability, cmt='GUTLUMEN') %>% 
+  mrgsim(delta = 0.1, end = 12) %>% as_tibble() %>% filter(time > 0.1)
+
+kascan <- ggplot(data = sim10, aes(x = time, y = Cskin)) + 
+  geom_line(data = sim10 %>% filter(ID==1), aes(col = "ka = 0.04h-1")) + 
+  geom_line(data = sim10 %>% filter(ID==2), aes(col = "ka = 0.2h-1")) + 
+  geom_line(data = sim10 %>% filter(ID==3), aes(col = "ka = 0.4h-1")) + 
+  geom_line(data = sim10 %>% filter(ID==4), aes(col = "ka = 0.8h-1")) + 
+  geom_line(data = sim10 %>% filter(ID==5), aes(col = "ka = 4h-1")) + 
+  labs(x = "time (h)", y = "skin concentration (mol/L)", color = "") + theme_bw()
+  
+kascan
+
+ggsave(file = 'img/sens_ka.png', plot = kascan, width = 8, height = 4)
+```
+
+## Body weight 
+
+```{r}
+sim20 <- modB %>% param(WEIGHT = 73) %>% 
+  ev(time=0, amt=dose/MW * bioavailability, cmt='GUTLUMEN') %>% 
+  mrgsim(delta = 0.1, end = 12) %>% as_tibble() %>% filter(time > 0.1)
+
+sim21 <- modB %>% param(WEIGHT = 80.3) %>% 
+  ev(time=0, amt=dose/MW * bioavailability, cmt='GUTLUMEN') %>% 
+  mrgsim(delta = 0.1, end = 12) %>% as_tibble() %>% filter(time > 0.1)
+
+weightscan <- ggplot(data = sim20, aes(x = time, y = Cskin)) + 
+  geom_line(data = sim20, aes(col = "weight = 73kg")) + 
+  geom_line(data = sim21, aes(col = "weight = 80.3kg")) + 
+  labs(x = "time (h)", y = "skin concentration (mol/L)", color = "") + theme_bw()
+
+weightscan
+
+ggsave(file = 'img/sens_weight.png', plot = weightscan, width = 8, height = 4)
+```
+
+## Renal impairment
+
+```{r}
+sim30 <- modB %>% 
+  # renal impairment based on FDA guidance
+  idata_set(expand.idata(renal_scaling = c(14/90, 29/90, 59/90, 89/90, 1))) %>% 
+  ev(time=0, amt=dose/MW * bioavailability, cmt='GUTLUMEN') %>% 
+  mrgsim(delta = 0.1, end = 12) %>% as_tibble() %>% filter(time > 0.1)
+
+renalscan_skin <- ggplot(data = sim30, aes(x = time, y = Cskin)) + 
+  geom_line(data = sim30 %>% filter(ID==1), aes(col = "end stage")) + 
+  geom_line(data = sim30 %>% filter(ID==2), aes(col = "severe")) + 
+  geom_line(data = sim30 %>% filter(ID==3), aes(col = "moderate")) + 
+  geom_line(data = sim30 %>% filter(ID==4), aes(col = "mild")) + 
+  geom_line(data = sim30 %>% filter(ID==5), aes(col = "normal")) + 
+  labs(x = "time (h)", y = "TXA concentration (mol/L)", color = "") + theme_bw() + ggtitle("skin")
+
+renalscan_plasma <- ggplot(data = sim30, aes(x = time, y = Cvenous)) + 
+  geom_line(data = sim30 %>% filter(ID==1), aes(col = "end stage")) + 
+  geom_line(data = sim30 %>% filter(ID==2), aes(col = "severe")) + 
+  geom_line(data = sim30 %>% filter(ID==3), aes(col = "moderate")) + 
+  geom_line(data = sim30 %>% filter(ID==4), aes(col = "mild")) + 
+  geom_line(data = sim30 %>% filter(ID==5), aes(col = "normal")) + 
+  labs(x = "time (h)", y = "TXA concentration (mol/L)", color = "") + theme_bw() + ggtitle("plasma")
+
+grid.arrange(renalscan_skin, renalscan_plasma, ncol = 1)
+
+png('img/sens_renal.png', width = 1000, height = 400, res = 100)
+grid.arrange(renalscan_skin, renalscan_plasma, ncol = 1)
+dev.off()
+```
