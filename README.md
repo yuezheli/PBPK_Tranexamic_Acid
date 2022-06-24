@@ -51,25 +51,29 @@ When I look at the exposure in different organs, plasma exposure is unsurprising
 
 ### Blood:plasma ratio
 
-The main reason for conducting blood:plasma ratio is due to the parameter is assumed, and my fitted result is different from [Kane et al., 2021](https://pubmed.ncbi.nlm.nih.gov/34087356/). 
+The main reason for conducting blood:plasma ratio is due to the parameter is assumed, and my fitted result is different from [Kane et al., 2021](https://pubmed.ncbi.nlm.nih.gov/34087356/). The local sensitivity analysis show that blood:plasma ratio has a major impact on Tmax, Cmax, and the exposure. Higher blood:plasma ratio leads to smaller Tmax, lower Cmax, and lower exposure. 
 
-(add pic)
+![](img/sens_BP.png)
 
 ### Absorption rate
 
-I want to carry out the senseitivity analysis on TXA absoprtion rate not only because this parameter is assumed in the current model, but also [Dunn 1999](https://pubmed.ncbi.nlm.nih.gov/10400410/) reported a slightly different bioavailability in the with/ without food situation. 
+I want to carry out the senseitivity analysis on TXA absoprtion rate not only because this parameter is assumed in the current model, but also [Dunn 1999](https://pubmed.ncbi.nlm.nih.gov/10400410/) reported a slightly different bioavailability in the with/ without food situation. As expected, higher oral absoprtion rate leads to earlier and higher peak of skin TXA concentration. 
 
-(add pic)
+![](img/sens_ka.png)
 
 ### Body weight 
 
-The interest in body weight is partially based on the validation data are from heavier males, while small females may also take this drug...
+The interest in body weight is partially based on the validation data are from heavier males, while small females may also take this drug. A 10% increase in the body weight barely has any impact on Tmax, Cmax, or the exposure in skin. 
+
+![](img/sens_weight.png)
 
 However, it is reasonable to caution that this weight adjustment can address gender-related issue for skin exposure, as women has the same percentage of cardiac output goes into skin ([Ref](https://pubmed.ncbi.nlm.nih.gov/14506981/)). However, this may not be the case for exposure in other organ (e.g. adipose). 
 
 ### Renal Impairment
 
-Since TXA is mostly cleared through renal pathway, thus ...
+Since TXA is mostly cleared through renal pathway, thus it is reasonable to look at how renal impairment would impact the pharmacokinetics of the drug in both skin and in plasma. As expected, the more sereve the renal impairment is (base on [FDA classification](https://www.fda.gov/media/78573/download)), the higher TXA exposure a person would has, in eitehr skin or in plasma. 
+
+![](img/sens_renal.png)
 
 ## Conclusion and Discussion
 
@@ -77,13 +81,19 @@ Overall, the plasma concentraion following the Transino II recommended dosing sc
 
 (talk about uncertainty and weaknesses).
 
+(talk about tissue volume adjustment)
+
 
 We acknowledge the science behind our work isn't new, as [Kane et al., 2021](https://pubmed.ncbi.nlm.nih.gov/34087356/) published a similar study on TXA with more extensive discussion on different route of administration. But I concede this repo provides an open-source implementation is is beneficial for the science. 
 
 ## Content of the folder
 
+- `TranexamicAcidPBPK.cpp` (model file)
+
+- `Transamin.Rmd` (main script)
+
 folders: 
 
-- TranexamicAcidPBPK.cpp (model file)
+- img (where images that are used in this readme file stored)
 
 - doc (where reference papers are stored)
